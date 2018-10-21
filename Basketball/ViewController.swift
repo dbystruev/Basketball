@@ -24,7 +24,7 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         sceneView.showsStatistics = true
         
         // Create a new scene
-        let scene = SCNScene(named: "art.scnassets/ship.scn")!
+        let scene = SCNScene()
         
         // Set the scene to the view
         sceneView.scene = scene
@@ -35,6 +35,7 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         
         // Create a session configuration
         let configuration = ARWorldTrackingConfiguration()
+        configuration.planeDetection = .vertical
 
         // Run the view's session
         sceneView.session.run(configuration)
@@ -48,6 +49,33 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     }
 
     // MARK: - ARSCNViewDelegate
+    func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
+        guard let anchor = anchor as? ARPlaneAnchor else { return }
+        
+        node.addChildNode(createWall(anchor: anchor))
+    }
+    
+    func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
+        guard let anchor = anchor as? ARPlaneAnchor,
+            let node = node.childNodes.first,
+            let plane = node.geometry as? SCNPlane else { return }
+        
+        plane.width = CGFloat(anchor.extent.x)
+        plane.height = CGFloat(anchor.extent.z)
+        
+        node.position = SCNVector3(anchor.center.x, 0, anchor.center.z)
+    }
+    
+    func createWall(anchor: ARPlaneAnchor) -> SCNNode {
+        let width = CGFloat(anchor.extent.x)
+        let height = CGFloat(anchor.extent.z)
+        let node = SCNNode(geometry: SCNPlane(width: width, height: height))
+        node.eulerAngles.x = -.pi / 2
+        node.opacity = 0.25
+        return node
+    }
+    
+    
     
 /*
     // Override to create and configure nodes for anchors added to the view's session.
@@ -71,5 +99,26 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     func sessionInterruptionEnded(_ session: ARSession) {
         // Reset tracking and/or remove existing anchors if consistent tracking is required
         
+    }
+    
+    func addHoop(result: ARHitTestResult) {
+        let scene = SCNScene(named: "art.scnassets/Hoop.scn")
+        
+        guard let node = scene?.rootNode.childNode(withName: "Hoop", recursively: true) else { return }
+        
+        let position = result.worldTransform.columns.3
+        node.position = SCNVector3(position.x, position.y, position.z)
+        
+        sceneView.scene.rootNode.addChildNode(node)
+        
+    }
+    
+    @IBAction func screenTapped(_ sender: UITapGestureRecognizer) {
+        let location = sender.location(in: sceneView)
+        let result = sceneView.hitTest(location, types: [.existingPlaneUsingExtent])
+        
+        if let result = result.first {
+            addHoop(result: result)
+        }
     }
 }
